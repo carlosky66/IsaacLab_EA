@@ -26,7 +26,7 @@ from isaaclab.envs import ManagerBasedRLEnv
 from evotorch.neuroevolution import NEProblem
 from evotorch import Problem
 from evotorch.algorithms import CEM, CMAES, Cosyne, GeneticAlgorithm, MAPElites, PGPE, SNES, XNES
-from evotorch.logging import PicklingLogger
+from evotorch.logging import PicklingLogger, StdOutLogger
 
 # TODO: create Runner
 
@@ -55,6 +55,7 @@ class Runner:
             pass
         
         self.logger = PicklingLogger(self.searcher, **logger_cfg)
+        self.stdout_logger = StdOutLogger(self.searcher)
         
     
     def run(self, n_runs):
