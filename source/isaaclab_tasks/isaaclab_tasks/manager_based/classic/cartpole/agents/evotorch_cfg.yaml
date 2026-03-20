@@ -1,0 +1,46 @@
+seed: 42
+
+# Problem
+problem: "neproblem"
+
+## NEProblem
+neproblem:
+  objective_sense: "max"
+  network_expression: "Linear({obs_dim}, 256) >> ELU() >> Linear(256, 128) >> ELU() >> Linear(128, {act_dim}) >> Tanh()"
+  initial_bounds: [-0.1, 0.1]
+  network_args:  null
+  eval_dtype:  null
+  eval_data_length: 0
+  num_actors:  null
+  actor_config:  null
+  num_gpus_per_actor:  null
+  num_subbatches:  null
+  subbatch_size: null
+
+algorithm: "pgpe"
+
+# PGPE
+
+pgpe:
+  center_learning_rate: 0.05
+  stdev_learning_rate: 0.1
+  stdev_init: 0.1
+  radius_init: null
+  num_interactions: null
+  popsize_max: null
+  optimizer: "clipup"
+  optimizer_config: null
+  ranking_method: "centered"
+  center_init: null
+  stdev_min: null
+  stdev_max: null
+  stdev_max_change: 0.2
+  symmetric: true
+  obj_index: null
+  distributed: false
+  popsize_weighted_grad_avg: null
+
+experiment:
+  directory: "cartpole_direct"
+  experiment_name: ""
+  interval: 5
