@@ -29,20 +29,14 @@ parser.add_argument(
     "--distributed", action="store_true", default=False, help="Run training with multiple GPUs or nodes."
 )
 parser.add_argument("--checkpoint", type=str, default=None, help="Path to model checkpoint to resume training.")
-parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
-parser.add_argument(
-    "--ml_framework",
-    type=str,
-    default="torch",
-    choices=["torch", "jax", "jax-numpy"],
-    help="The ML framework used for training the skrl agent.",
-)
+parser.add_argument("--n_generations", type=int, default=None, help="EA Policy training generations.")
+
 parser.add_argument(
     "--algorithm",
     type=str,
-    default="PPO",
-    choices=["AMP", "PPO", "IPPO", "MAPPO"],
-    help="The RL algorithm used for training the skrl agent.",
+    default="PGPE",
+    choices=["CEM", "CMAES", "COSYNE", "GA", "MAPELITES", "PGPE", "SNES","XNES"],
+    help="The EA algorithm used for training the EvoTorch agent.",
 )
 
 # append AppLauncher cli args
@@ -62,34 +56,31 @@ simulation_app = app_launcher.app
 
 """Rest everything follows."""
 
-from evotorch.algorithms import PGPE # o CMAES, SNES, GeneticAlgorithm...
-from evotorch.logging import StdOutLogger
-
 import gymnasium as gym
 import os
 import random
 from datetime import datetime
 
-import skrl
+import evotorch
 from packaging import version
 
-if args_cli.ml_framework.startswith("torch"):
-    from skrl.utils.runner.torch import Runner
-elif args_cli.ml_framework.startswith("jax"):
-    from skrl.utils.runner.jax import Runner
+EVOTORCH_VERSION = "0.6.1"
+if version.parse(evotorch.__version__) < version.parse(EVOTORCH_VERSION):
+    print(
+        f"Unsupported skrl version: {evotorch.__version__}. "
+        f"Install supported version using 'pip install skrl>={EVOTORCH_VERSION}'"
+    )
+    exit()
 
 from isaaclab.envs import (
-    DirectMARLEnv,
     DirectMARLEnvCfg,
     DirectRLEnvCfg,
     ManagerBasedRLEnvCfg,
-    multi_agent_to_single_agent,
 )
 from isaaclab.utils.assets import retrieve_file_path
-from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_pickle, dump_yaml
 
-from isaaclab_ea.evotorch import EvoTorchVecEnvWrapper
+from isaaclab_ea.evotorch import EvoTorchNEVecEnvWrapper, Runner
 
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
@@ -98,8 +89,7 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
 
 # config shortcuts
 algorithm = args_cli.algorithm.lower()
-agent_cfg_entry_point = "skrl_cfg_entry_point" if algorithm in ["ppo"] else f"skrl_{algorithm}_cfg_entry_point"
-
+agent_cfg_entry_point = f"evotorch_cfg_entry_point"
 
 @hydra_task_config(args_cli.task, agent_cfg_entry_point)
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: dict):
@@ -108,15 +98,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
 
-    # multi-gpu training config
-    if args_cli.distributed:
-        env_cfg.sim.device = f"cuda:{app_launcher.local_rank}"
     # max iterations for training
-    if args_cli.max_iterations:
-        agent_cfg["trainer"]["timesteps"] = args_cli.max_iterations * agent_cfg["agent"]["rollouts"]
-    agent_cfg["trainer"]["close_environment_at_exit"] = False
-    # configure the ML framework into the global skrl variable
-
+    if args_cli.n_generations:
+        n_generations = args_cli.n_generations
     # randomly sample a seed if seed = -1
     if args_cli.seed == -1:
         args_cli.seed = random.randint(0, 10000)
@@ -127,17 +111,17 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.seed = agent_cfg["seed"]
 
     # specify directory for logging experiments
-    log_root_path = os.path.join("logs", "skrl", agent_cfg["agent"]["experiment"]["directory"])
+    log_root_path = os.path.join("logs", "evotorch", agent_cfg["experiment"]["directory"])
     log_root_path = os.path.abspath(log_root_path)
     print(f"[INFO] Logging experiment in directory: {log_root_path}")
     # specify directory for logging runs: {time-stamp}_{run_name}
-    log_dir = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + f"_{algorithm}_{args_cli.ml_framework}"
+    log_dir = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + f"_{algorithm}"
     print(f"Exact experiment name requested from command line {log_dir}")
-    if agent_cfg["agent"]["experiment"]["experiment_name"]:
-        log_dir += f'_{agent_cfg["agent"]["experiment"]["experiment_name"]}'
+    if agent_cfg["experiment"]["experiment_name"]:
+        log_dir += f'_{agent_cfg["experiment"]["experiment_name"]}'
     # set directory into agent config
-    agent_cfg["agent"]["experiment"]["directory"] = log_root_path
-    agent_cfg["agent"]["experiment"]["experiment_name"] = log_dir
+    agent_cfg["experiment"]["directory"] = log_root_path
+    agent_cfg["experiment"]["experiment_name"] = log_dir
     # update log_dir
     log_dir = os.path.join(log_root_path, log_dir)
 
@@ -148,29 +132,21 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
 
     # get checkpoint path (to resume training)
-    resume_path = retrieve_file_path(args_cli.checkpoint) if args_cli.checkpoint else None
+    resume_path = retrieve_file_path(args_cli.checkpoint) if args_cli.checkpoint else None # TODO: implement resume training
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
 
-    # 2. Instanciar tu Wrapper
-    problem = EvoTorchVecEnvWrapper(env)
+    # 2. Instanciate Wrapper 
+    problem = EvoTorchNEVecEnvWrapper(env, agent_cfg[agent_cfg["problem"]])
 
-    # 3. Elegir un algoritmo de EvoTorch
-    # PGPE es muy bueno para control continuo en robótica
-    searcher = PGPE(
-        problem, 
-        popsize=env_cfg.scene.num_envs,
-        stdev_init=0.1,
-        center_learning_rate=0.05,
-        stdev_learning_rate=0.1,
-    )
-
-    # 4. Logger para ver el progreso en terminal
-    logger = StdOutLogger(searcher)
-
-    # 5. Entrenar por N generaciones
-    searcher.run(100)
+    logger_cfg = {}
+    logger_cfg["directory"] = log_dir
+    logger_cfg["interval"] = agent_cfg["experiment"]["interval"]
+    
+    runner = Runner(problem, agent_cfg["algorithm"], agent_cfg[agent_cfg["algorithm"]], logger_cfg)
+    
+    runner.run(100)
 
     # close the simulator
     env.close()
