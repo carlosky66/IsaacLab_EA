@@ -81,6 +81,7 @@ from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.io import dump_pickle, dump_yaml
 
 from isaaclab_ea.evotorch import EvoTorchNEVecEnvWrapper, Runner
+from isaaclab_ea.utils import parse_ga_operators_cfg
 
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
@@ -101,6 +102,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # max iterations for training
     if args_cli.n_generations:
         n_generations = args_cli.n_generations
+    else:
+        n_generations = agent_cfg["generations"]
     # randomly sample a seed if seed = -1
     if args_cli.seed == -1:
         args_cli.seed = random.randint(0, 10000)
@@ -144,9 +147,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     logger_cfg["directory"] = log_dir
     logger_cfg["interval"] = agent_cfg["experiment"]["interval"]
     
+    agent_cfg[agent_cfg["algorithm"]]["operators"] = parse_ga_operators_cfg(problem, agent_cfg[agent_cfg["algorithm"]])
+    
     runner = Runner(problem, agent_cfg["algorithm"], agent_cfg[agent_cfg["algorithm"]], logger_cfg)
     
-    runner.run(100)
+    runner.run(n_generations)
 
     # close the simulator
     env.close()
