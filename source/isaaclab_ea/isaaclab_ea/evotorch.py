@@ -36,7 +36,7 @@ from evotorch.algorithms import (
     SNES,
     XNES,
 )
-from evotorch.logging import PicklingLogger, StdOutLogger
+from evotorch.logging import PicklingLogger, StdOutLogger, PandasLogger, WandbLogger
 
 class Runner:
     def __init__(
@@ -44,15 +44,18 @@ class Runner:
     ):
         algorithm_cfg['problem'] = env_problem
         algorithm_name = algorithm_name.upper()
-        if algorithm_name != 'MAPELITES':
-            algorithm_cfg['popsize'] = env_problem.num_envs
+
+        print(f"Initializing {algorithm_name} with config: {algorithm_cfg}")
+        
+        if algorithm_name != 'MAPELITES' and ('popsize' not in algorithm_cfg or algorithm_cfg['popsize'] is None):
+            algorithm_cfg['popsize'] = env_problem.num_envs            
 
         if algorithm_name == 'CEM':
-            pass
+            self.searcher = CEM(**algorithm_cfg)
         elif algorithm_name == 'CMAES':
-            pass
+            self.searcher = CMAES(**algorithm_cfg)
         elif algorithm_name == 'COSYNE':
-            pass
+            self.searcher = Cosyne(**algorithm_cfg)
         elif algorithm_name == 'GA':
             self.searcher = GeneticAlgorithm(**algorithm_cfg)
         elif algorithm_name == 'MAPELITES':
@@ -60,15 +63,24 @@ class Runner:
         elif algorithm_name == 'PGPE':
             self.searcher = PGPE(**algorithm_cfg)
         elif algorithm_name == 'SNES':
-            pass
+            self.searcher = SNES(**algorithm_cfg)
         elif algorithm_name == 'XNES':
-            pass
+            self.searcher = XNES(**algorithm_cfg)
 
-        self.logger = PicklingLogger(self.searcher, **logger_cfg)
-        self.stdout_logger = StdOutLogger(self.searcher)
+        if 'pandas' in logger_cfg['names']:
+            self.pandas_logger = PandasLogger(self.searcher)
+        if 'wandb' in logger_cfg['names']:
+            self.wandb_logger = WandbLogger(self.searcher, dir=logger_cfg['directory'], **logger_cfg['wandb'])
+        if 'pickle' in logger_cfg['names']:
+            self.pickling_logger = PicklingLogger(self.searcher, directory=logger_cfg['directory'], **logger_cfg['pickle'])
+        if 'stdout' in logger_cfg['names']:
+            self.stdout_logger = StdOutLogger(self.searcher)
 
     def run(self, n_runs):
         self.searcher.run(n_runs)
+        
+    def save_pandas_logger(self, directory=''):
+        self.pandas_logger.to_dataframe().to_csv(directory + '/pandas_dataframe.csv', index=False)
 
 
 """

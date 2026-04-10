@@ -143,15 +143,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # 2. Instanciate Wrapper 
     problem = EvoTorchNEVecEnvWrapper(env, agent_cfg[agent_cfg["problem"]])
 
-    logger_cfg = {}
-    logger_cfg["directory"] = log_dir
-    logger_cfg["interval"] = agent_cfg["experiment"]["interval"]
+    agent_cfg["loggers"]["directory"] = log_dir
     
-    agent_cfg[agent_cfg["algorithm"]]["operators"] = parse_ga_operators_cfg(problem, agent_cfg[agent_cfg["algorithm"]])
+    # agent_cfg[agent_cfg["algorithm"]]["operators"] = parse_ga_operators_cfg(problem, agent_cfg[agent_cfg["algorithm"]])
     
-    runner = Runner(problem, agent_cfg["algorithm"], agent_cfg[agent_cfg["algorithm"]], logger_cfg)
+    runner = Runner(problem, agent_cfg["algorithm"], agent_cfg[agent_cfg["algorithm"]], agent_cfg["loggers"])
     
     runner.run(n_generations)
+    runner.save_pandas_logger(directory=log_dir)
 
     # close the simulator
     env.close()
