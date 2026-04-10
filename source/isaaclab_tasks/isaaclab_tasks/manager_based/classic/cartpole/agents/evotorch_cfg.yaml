@@ -18,7 +18,81 @@ neproblem:
   num_subbatches:  null
   subbatch_size: null
 
-algorithm: "ga"
+algorithm: "pgpe"
+
+# CEM
+
+cem:
+  parenthood_ratio: 0.1
+  stdev_init: 0.1
+  radius_init: null
+  num_interactions: null
+  popsize_max: null
+  center_init: null
+  stdev_min: null
+  stdev_max: null
+  stdev_max_change: null
+  obj_index: null
+  distributed: false
+  popsize_weighted_grad_avg: null
+
+# CMA-ES
+
+cmaes:
+  stdev_init: 0.1
+  popsize: 4096
+  center_init: null
+  c_m: 1.0
+  c_sigma: null
+  c_sigma_ratio: 1.0
+  damp_sigma: null
+  damp_sigma_ratio: 1.0
+  c_c: null
+  c_c_ratio: 1.0
+  c_1: null
+  c_1_ratio: 1.0
+  c_mu: null
+  c_mu_ratio: 1.0
+  active: true
+  csa_squared: false
+  stdev_min: null
+  stdev_max: null
+  separable: true
+  limit_C_decomposition: true
+  obj_index: null
+
+# Cosyne
+
+cosyne:
+  tournament_size: 4
+  mutation_stdev: 0.1
+  mutation_probability: null
+  permute_all: false
+  num_elites: null
+  elitism_ratio: 0.1
+  eta: null
+  num_children: null
+
+# Genetic Algorithm
+
+ga:
+  operators: 
+    crossover:
+      name: "TWOPOINT"
+      args:
+        tournament_size: 4
+        obj_index: null
+        num_children: null
+        cross_over_rate: null
+      
+    mutation:
+      name: "Gaussian"
+      args:
+        stdev: 0.1
+        mutation_probability: 0.2
+  elitist: true
+  re_evaluate: true
+  re_evaluate_parents_first: null
 
 # PGPE
 
@@ -39,27 +113,59 @@ pgpe:
   symmetric: true
   obj_index: null
   distributed: false
-  
-ga:
-  operators: 
-    crossover:
-      name: "OnePoint"
-      args:
-        tournament_size: 4
-        obj_index: null
-        num_children: null
-        cross_over_rate: null
-      
-    mutation:
-      name: "Gaussian"
-      args:
-        stdev: 0.1
-        mutation_probability: null
-  elitist: true
-  re_evaluate: true
-  re_evaluate_parents_first: null
+
+# SNES
+
+snes:
+  stdev_init: 0.1
+  radius_init: null
+  popsize: null
+  center_learning_rate: null
+  stdev_learning_rate: null
+  scale_learning_rate: true
+  num_interactions: null
+  popsize_max: null
+  optimizer: null
+  optimizer_config: null
+  ranking_method: 'nes'
+  center_init: null
+  stdev_min: null
+  stdev_max: null
+  stdev_max_change: null
+  obj_index: null
+  distributed: false
+  popsize_weighted_grad_avg: null
+
+# XNES
+
+xnes:
+  stdev_init: 0.1
+  radius_init: null
+  popsize: null
+  center_learning_rate: null
+  stdev_learning_rate: null
+  scale_learning_rate: true
+  num_interactions: null
+  popsize_max: null
+  num_interactions: null
+  optimizer: null
+  optimizer_config: null
+  ranking_method: 'nes'
+  center_init: null
+  obj_index: null
+  distributed: false
+  popsize_weighted_grad_avg: null
 
 experiment:
   directory: "cartpole_direct"
   experiment_name: ""
-  interval: 5
+
+loggers:
+  names: ["wandb", "pickle", "pandas", "stdout"]
+  wandb:
+    group: "train"
+    name: "evotorch_isaaclab"
+    project: "evotorch_isaaclab"
+  
+  pickle:
+    interval: 5
