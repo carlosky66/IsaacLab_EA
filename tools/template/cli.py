@@ -242,12 +242,45 @@ def main() -> None:
             )
         rl_library_algorithms.append({"name": rl_library, "algorithms": [item.lower() for item in algorithms]})
 
+    # RL library
+
+    ea_library_algorithms = []
+    
+    # - show supported EA libraries and features
+    ea_library_table = rich.table.Table(title="Supported EA libraries")
+    ea_library_table.add_column("EA/training feature", no_wrap=True)
+    ea_library_table.add_column("evotorch")
+    ea_library_table.add_row("ML frameworks", "PyTorch")
+    # Ajusta estos valores según las capacidades reales de tu integración
+    ea_library_table.add_row("Algorithms", "CEM, CMAES, COSYNE, GA, MAPELITES, PGPE, SNES, XNES") 
+    ea_library_table.add_row("Multi-agent support", State.No) 
+    ea_library_table.add_row("Distributed training", State.Yes)
+    cli_handler.output_table(ea_library_table)
+
+    # - prompt for EA libraries
+    supported_ea_libraries = ["evotorch", "none"]
+    selected_ea_libraries = cli_handler.get_choices(
+        cli_handler.input_checkbox("EA library:", choices=supported_ea_libraries),
+        default=["none"],
+    )
+    
+    selected_ea_libraries = [lib for lib in selected_ea_libraries if lib not in ["none", "---", "all"]]
+
+    # - prompt for algorithms per EA library
+    for ea_lib in selected_ea_libraries:
+        ea_library_algorithms.append({
+            "name": ea_lib,
+            # placeholder
+            "algorithms": ["all"]
+        })
+        
     specification = {
         "external": is_external_project,
         "path": project_path,
         "name": project_name,
         "workflows": workflow,
         "rl_libraries": rl_library_algorithms,
+        "ea_libraries": ea_library_algorithms
     }
     generate(specification)
 

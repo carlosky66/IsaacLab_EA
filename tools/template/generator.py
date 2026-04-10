@@ -93,6 +93,20 @@ def _generate_task_per_workflow(task_dir: str, specification: dict) -> None:
                 print(f"Template not found: agents/{file_name}")
                 continue
             _write_file(os.path.join(agents_dir, file_name + file_ext), content=template.render(**specification))
+    
+    # - task/agents/*cfg* for EA
+    for ea_library in specification.get("ea_libraries", []):
+        ea_library_name = ea_library["name"]
+        for algorithm in ea_library.get("algorithms", []):
+            file_name = f"{ea_library_name}_cfg"
+            file_ext = ".yaml" 
+            try:
+                template = jinja_env.get_template(f"agents/{file_name}")
+            except jinja2.exceptions.TemplateNotFound:
+                print(f"Template not found: agents/{file_name}")
+                continue
+            _write_file(os.path.join(agents_dir, file_name + file_ext), content=template.render(**specification))
+    
     # workflow-specific content
     if task_spec["workflow"]["name"] == "direct":
         # - task/*env_cfg.py
@@ -189,6 +203,24 @@ def _external(specification: dict) -> None:
                 )],
                 src=file,
             )
+    
+    # evolutionary algorithm libraries
+    for ea_library in specification.get("ea_libraries", []):
+        shutil.copytree(
+            os.path.join(ROOT_DIR, "scripts", "evolutionary_algorithms", ea_library["name"]),
+            os.path.join(dir, ea_library["name"]),
+            dirs_exist_ok=True,
+        )
+        # replace placeholder in scripts
+        for file in glob.glob(os.path.join(dir, ea_library["name"], "*.py")):
+            _replace_in_file(
+                [(
+                    "# PLACEHOLDER: Extension template (do not remove this comment)",
+                    f"import {name}.tasks  # noqa: F401",
+                )],
+                src=file,
+            )        
+    
     # - other scripts
     _replace_in_file(
         [("import isaaclab_tasks", f"import {name}.tasks"), ("isaaclab_tasks", name), ('"Isaac"', '"Template-"')],
